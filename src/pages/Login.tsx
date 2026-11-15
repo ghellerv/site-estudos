@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { NomeMarca, Simbolo } from '../components/Logo'
 import { useAuth } from '../lib/auth'
 
 export default function Login() {
@@ -26,8 +27,10 @@ export default function Login() {
     <main className="login">
       <div className="login-card">
         
-        <h1>Site de Estudos</h1>
-        <p className="muted">Ciclos semanais, revisões e desempenho, tudo em um lugar.</p>
+        <Simbolo tamanho={88} />
+        <h1><NomeMarca /></h1>
+        <p className="nota">estude leve, lembre tudo.</p>
+        <p className="muted">Metas semanais, revisões e desempenho, tudo no mesmo caderno.</p>
         <button className="btn-google" onClick={onEntrar} disabled={enviando}>
           <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
             <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/>

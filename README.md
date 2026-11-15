@@ -1,4 +1,4 @@
-# Site de Estudos
+# caderninho.
 
 Site para estudar para concursos por metas semanais: cada disciplina tem um caminho de atividades (teoria, mapeamento, questões, revisão e teste) e cada meta mistura as próximas atividades de todas as disciplinas. Login com Google e dados separados por pessoa.
 

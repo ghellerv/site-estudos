@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { usePlano } from '../lib/plan'
 import { MODO_DEMO } from '../lib/store'
+import { NomeMarca, Simbolo } from './Logo'
 
 const I = ({ d }: { d: string }) => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -24,7 +25,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="app">
       <aside className="lateral-nav">
-        <div className="marca">Site de Estudos</div>
+        <NavLink to="/" className="marca" aria-label="caderninho, início"><Simbolo /><NomeMarca /></NavLink>
         {planos.length > 0 && (
           <label className="seletor-plano">
             <span className="muted">Planejamento</span>
@@ -52,6 +53,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
       </aside>
       <main className="conteudo">
+        <div className="marca-movel marca"><Simbolo tamanho={30} /><NomeMarca /></div>
         {MODO_DEMO && <p className="aviso">Modo de demonstração: os dados ficam só neste navegador e não aparecem no site com login.</p>}
         {contaTrocada && <p className="aviso">A conta conectada neste navegador mudou para <b>{contaTrocada}</b>. O que aparece agora é dessa conta; os dados da conta anterior continuam salvos nela.</p>}
         <p className="muted conta-movel">Conectado como {user?.email}</p>

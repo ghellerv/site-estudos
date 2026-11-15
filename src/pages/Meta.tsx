@@ -81,7 +81,8 @@ export default function MetaPage() {
   return (
     <>
       <header className="titulo-pagina">
-        <h1>{ehAtual ? `Olá, ${user?.nome.split(' ')[0] || 'estudante'}!` : `${meta.numero}ª Meta`}</h1>
+        {ehAtual && <p className="nota">{new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>}
+        <h1>{ehAtual ? <>Olá, {user?.nome.split(' ')[0] || 'estudante'}! {completa ? 'Meta concluída.' : <>Faltam <span className="grifo">{pl(meta.itens.length - feitas(meta), 'atividade')}</span>.</>}</> : `${meta.numero}ª Meta`}</h1>
         <p className="muted">{ehAtual ? 'Acompanhe seu progresso e veja o que falta para concluir a meta.' : <Link to="/arquivo">‹ Voltar ao arquivo</Link>}</p>
       </header>
 
