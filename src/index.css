@@ -1,0 +1,58 @@
+:root {
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --text: #1b2433;
+  --muted: #5b6778;
+  --primary: #1f3a5f;
+  --border: #e2e7ef;
+  --tag-bg: #e8eef7;
+  --erro: #b42318;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11161e;
+    --surface: #1a212c;
+    --text: #e7ecf3;
+    --muted: #9aa6b6;
+    --primary: #8fb4e6;
+    --border: #2a3342;
+    --tag-bg: #243044;
+    --erro: #ff8a80;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); min-height: 100vh; }
+h1 { margin: 0 0 8px; font-size: 1.6rem; }
+h2 { margin: 0 0 6px; font-size: 1.05rem; }
+.muted { color: var(--muted); margin: 0 0 12px; line-height: 1.45; }
+.erro { color: var(--erro); margin-top: 12px; }
+
+.login { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.login-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 32px 24px; width: 100%; max-width: 380px; text-align: center;
+}
+.logo { font-size: 2.4rem; margin-bottom: 8px; }
+.btn-google {
+  display: inline-flex; align-items: center; gap: 10px; margin-top: 12px;
+  padding: 12px 20px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); font-size: 1rem; cursor: pointer;
+}
+.btn-google:disabled { opacity: .6; cursor: default; }
+
+.topo {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.marca { font-weight: 600; color: var(--primary); }
+.usuario { display: flex; align-items: center; gap: 12px; }
+.usuario img { width: 32px; height: 32px; border-radius: 50%; }
+.btn-link { background: none; border: none; color: var(--primary); cursor: pointer; font-size: .95rem; }
+
+.conteudo { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+.cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); margin-top: 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.tag { display: inline-block; font-size: .8rem; padding: 3px 10px; border-radius: 999px; background: var(--tag-bg); color: var(--primary); }
