@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth'
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from './firebase'
@@ -8,6 +8,8 @@ import type { Usuario } from './types'
 type AuthState = {
   user: Usuario | null
   carregando: boolean
+  /** Preenchido quando a conta conectada neste navegador muda com o site aberto. */
+  contaTrocada: string
   entrar: () => Promise<void>
   sair: () => Promise<void>
 }
@@ -28,9 +30,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Usuario | null>(MODO_DEMO ? DEMO : null)
   const [carregando, setCarregando] = useState(!MODO_DEMO)
 
+  const [contaTrocada, setContaTrocada] = useState('')
+  const anterior = useRef<string | null>(null)
+
   useEffect(() => {
     if (MODO_DEMO) return
     return onAuthStateChanged(auth, (u) => {
+      if (u && anterior.current && anterior.current !== u.uid) setContaTrocada(u.email ?? '')
+      anterior.current = u?.uid ?? anterior.current
       setUser(u ? { uid: u.uid, email: (u.email ?? '').toLowerCase(), nome: u.displayName ?? '', foto: u.photoURL ?? undefined } : null)
       setCarregando(false)
       if (u) salvarPerfil(u).catch((e) => console.error('Erro ao salvar perfil', e))
@@ -40,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthState = {
     user,
     carregando,
+    contaTrocada,
     entrar: async () => {
       await signInWithPopup(auth, googleProvider)
     },

@@ -1,4 +1,4 @@
-import { collection, deleteDoc, doc, getDocs, query, setDoc, where } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDocs, query, runTransaction, setDoc, where } from 'firebase/firestore'
 import { db } from './firebase'
 import type { Aprof, Disciplina, Meta, Plano, Usuario } from './types'
 
@@ -18,6 +18,11 @@ export interface Store {
   carregar(planoId: string): Promise<DadosPlano>
   salvar(planoId: string, sub: Sub, d: { id: string }): Promise<void>
   excluir(planoId: string, sub: Sub, id: string): Promise<void>
+  /**
+   * Lê a versão mais recente do documento no servidor, aplica `fn` e grava, tudo numa transação.
+   * Evita que uma aba ou pessoa com dados antigos apague o que outra acabou de salvar.
+   */
+  atualizar<T extends { id: string }>(planoId: string, sub: Sub, id: string, fn: (atual: T | undefined) => T): Promise<T>
 }
 
 const SUBS: Sub[] = ['disciplines', 'metas', 'aprofundamentos']
@@ -25,12 +30,17 @@ const SUBS: Sub[] = ['disciplines', 'metas', 'aprofundamentos']
 const fire: Store = {
   async listarPlanos(u) {
     const c = collection(db, 'plans')
-    const [meus, dela] = await Promise.all([
+    const [meus, dela] = await Promise.allSettled([
       getDocs(query(c, where('ownerUid', '==', u.uid))),
       getDocs(query(c, where('studentEmail', '==', u.email.toLowerCase()))),
     ])
+    // Uma consulta que falha não pode esconder os planos da outra.
+    if (meus.status === 'rejected' && dela.status === 'rejected') throw meus.reason
     const m = new Map<string, Plano>()
-    for (const s of [...meus.docs, ...dela.docs]) m.set(s.id, s.data() as Plano)
+    for (const r of [meus, dela]) {
+      if (r.status === 'fulfilled') for (const s of r.value.docs) m.set(s.id, s.data() as Plano)
+      else console.error('Falha ao listar planos', r.reason)
+    }
     return [...m.values()]
   },
   async salvarPlano(p) {
@@ -56,6 +66,15 @@ const fire: Store = {
   },
   async excluir(planoId, sub, id) {
     await deleteDoc(doc(db, 'plans', planoId, sub, id))
+  },
+  async atualizar<T extends { id: string }>(planoId: string, sub: Sub, id: string, fn: (atual: T | undefined) => T) {
+    const ref = doc(db, 'plans', planoId, sub, id)
+    return runTransaction(db, async (tx) => {
+      const s = await tx.get(ref)
+      const novo = fn(s.exists() ? (s.data() as T) : undefined)
+      tx.set(ref, novo)
+      return novo
+    })
   },
 }
 
@@ -106,6 +125,13 @@ const local: Store = {
     const b = ler()
     delete subDe(b, planoId)[sub][id]
     gravar(b)
+  },
+  async atualizar<T extends { id: string }>(planoId: string, sub: Sub, id: string, fn: (atual: T | undefined) => T) {
+    const b = ler()
+    const novo = JSON.parse(JSON.stringify(fn(subDe(b, planoId)[sub][id] as T | undefined))) as T
+    subDe(b, planoId)[sub][id] = novo
+    gravar(b)
+    return novo
   },
 }
 

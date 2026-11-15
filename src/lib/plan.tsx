@@ -16,7 +16,7 @@ interface PlanState {
   carregando: boolean
   erro: string
   selecionar: (id: string) => void
-  recarregar: () => Promise<void>
+  recarregar: (silencioso?: boolean) => Promise<void>
   criarPlano: (nome: string) => Promise<Plano>
   salvarPlano: (p: Plano) => Promise<void>
   excluirPlano: (id: string) => Promise<void>
@@ -48,7 +48,8 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
   const falha = (e: unknown) => {
     console.error(e)
-    setErro('Não foi possível falar com o servidor. Verifique a conexão e tente de novo.')
+    const cod = (e as { code?: string }).code
+    setErro(`Não foi possível salvar. Nada foi perdido do que já estava gravado; tente de novo.${cod ? ` (${cod})` : ''}`)
     throw e
   }
 
@@ -65,9 +66,9 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     setAprofs(d.aprofs.sort((a, b) => b.criadoEm - a.criadoEm))
   }, [])
 
-  const recarregar = useCallback(async () => {
+  const recarregar = useCallback(async (silencioso = false) => {
     if (!user) return
-    setCarregando(true)
+    if (!silencioso) setCarregando(true)
     setErro('')
     try {
       const ps = (await store.listarPlanos(user)).sort((a, b) => a.criadoEm - b.criadoEm)
@@ -76,7 +77,8 @@ export function PlanProvider({ children }: { children: ReactNode }) {
       await carregarDados(id)
     } catch (e) {
       console.error(e)
-      setErro('Não foi possível carregar seus dados. Verifique a conexão e recarregue a página.')
+      const cod = (e as { code?: string }).code
+      setErro(`Não foi possível carregar seus dados. Eles continuam gravados; recarregue a página.${cod ? ` (${cod})` : ''}`)
     } finally {
       setCarregando(false)
     }
@@ -88,18 +90,46 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, ativoId])
 
+  // Ao voltar para a aba, busca o que mudou em outro aparelho ou feito por outra pessoa.
+  useEffect(() => {
+    let ultimo = Date.now()
+    const f = () => {
+      if (document.visibilityState === 'visible' && Date.now() - ultimo > 15000) {
+        ultimo = Date.now()
+        void recarregar(true)
+      }
+    }
+    document.addEventListener('visibilitychange', f)
+    return () => document.removeEventListener('visibilitychange', f)
+  }, [recarregar])
+
   const selecionar = (id: string) => {
     localStorage.setItem(CHAVE_ATIVO, id)
     setAtivoId(id)
   }
 
+  const porDisc = (d: Disciplina) => setDiscs((ds) => [...ds.filter((x) => x.id !== d.id), d].sort((a, b) => a.ordem - b.ordem))
+  const porMeta = (m: Meta) => setMetas((ms) => [...ms.filter((x) => x.id !== m.id), m].sort((a, b) => a.numero - b.numero))
+
+  /**
+   * Salva a disciplina editada sem desfazer o que as metas já marcaram no servidor:
+   * quais atividades foram distribuídas e em que ciclo a disciplina está.
+   */
   const salvarDisc = async (d: Disciplina) => {
-    await store.salvar(planoId, 'disciplines', d).catch(falha)
-    setDiscs((ds) => [...ds.filter((x) => x.id !== d.id), d].sort((a, b) => a.ordem - b.ordem))
+    const final = await store
+      .atualizar<Disciplina>(planoId, 'disciplines', d.id, (atual) => {
+        if (!atual) return d
+        const flags = new Map(atual.atividades.map((a) => [a.id, a.distribuida]))
+        return { ...d, ciclo: Math.max(d.ciclo, atual.ciclo), atividades: d.atividades.map((a) => ({ ...a, distribuida: flags.get(a.id) ?? a.distribuida })) }
+      })
+      .catch(falha)
+    porDisc(final)
   }
-  const salvarMeta = async (m: Meta) => {
-    await store.salvar(planoId, 'metas', m).catch(falha)
-    setMetas((ms) => [...ms.filter((x) => x.id !== m.id), m].sort((a, b) => a.numero - b.numero))
+  /** Altera uma meta a partir da versão mais recente no servidor. */
+  const mudarMeta = async (id: string, fn: (m: Meta) => Meta) => {
+    const atual = metas.find((m) => m.id === id)
+    const final = await store.atualizar<Meta>(planoId, 'metas', id, (m) => fn(m ?? atual!)).catch(falha)
+    porMeta(final)
   }
 
   const metaAtual = metas[metas.length - 1]
@@ -159,20 +189,36 @@ export function PlanProvider({ children }: { children: ReactNode }) {
       setDiscs((ds) => ds.filter((x) => x.id !== id))
     },
     salvarItem: async (metaN, item) => {
-      const m = metas.find((x) => x.numero === metaN)
-      if (m) await salvarMeta({ ...m, itens: m.itens.map((i) => (i.id === item.id ? item : i)) })
+      if (metas.some((x) => x.numero === metaN)) await mudarMeta(String(metaN), (m) => ({ ...m, itens: m.itens.map((i) => (i.id === item.id ? item : i)) }))
     },
     adiarMeta: async () => {
-      if (metaAtual && metaAtual.adiamentos === 0) await salvarMeta({ ...metaAtual, prazo: metaAtual.prazo + DIA, adiamentos: 1 })
+      if (metaAtual) await mudarMeta(metaAtual.id, (m) => (m.adiamentos === 0 ? { ...m, prazo: m.prazo + DIA, adiamentos: 1 } : m))
     },
     iniciarProximaMeta: async () => {
-      if (!plano || (metaAtual && !metaCompleta(metaAtual))) return
+      if (!plano) return
+      // Parte sempre dos dados mais recentes do servidor, não do que esta aba tinha carregado.
+      const fresco = await store.carregar(plano.id).catch(falha)
+      const ultima = fresco.metas.sort((a, b) => a.numero - b.numero)[fresco.metas.length - 1]
+      if ((ultima?.numero ?? 0) !== (metaAtual?.numero ?? 0) || (ultima && !metaCompleta(ultima))) {
+        // Outra aba ou pessoa já mexeu nesta meta: só mostra o estado atual.
+        await recarregar(true)
+        return
+      }
       const agora = Date.now()
-      const g = gerarMeta(plano, discs, metaAtual, agora)
+      const g = gerarMeta(plano, fresco.discs, ultima, agora)
       if (g.meta.itens.length === 0) return
-      for (const d of g.discs) await salvarDisc(d)
-      if (metaAtual) await salvarMeta({ ...metaAtual, concluidaEm: agora })
-      await salvarMeta(g.meta)
+      for (const d of g.discs) {
+        const flags = new Map(d.atividades.map((a) => [a.id, a.distribuida]))
+        const final = await store
+          .atualizar<Disciplina>(plano.id, 'disciplines', d.id, (atual) =>
+            atual ? { ...atual, ciclo: d.ciclo, atividades: atual.atividades.map((a) => ({ ...a, distribuida: flags.get(a.id) ?? a.distribuida })) } : d,
+          )
+          .catch(falha)
+        porDisc(final)
+      }
+      if (ultima) await mudarMeta(ultima.id, (m) => ({ ...m, concluidaEm: m.concluidaEm ?? agora }))
+      await store.salvar(plano.id, 'metas', g.meta).catch(falha)
+      porMeta(g.meta)
     },
     salvarAprof: async (a) => {
       await store.salvar(planoId, 'aprofundamentos', a).catch(falha)

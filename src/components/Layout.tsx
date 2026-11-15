@@ -19,7 +19,7 @@ const NAV: { to: string; rotulo: string; curto?: string; d: string }[] = [
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {
-  const { user, sair } = useAuth()
+  const { user, sair, contaTrocada } = useAuth()
   const { planos, plano, selecionar, erro } = usePlano()
   return (
     <div className="app">
@@ -46,12 +46,15 @@ export default function Layout({ children }: { children: ReactNode }) {
           {user?.foto && <img src={user.foto} alt="" referrerPolicy="no-referrer" />}
           <div>
             <div className="nome">{user?.nome}</div>
+            <div className="muted email">{user?.email}</div>
             <button className="btn-link" onClick={sair}>Sair</button>
           </div>
         </div>
       </aside>
       <main className="conteudo">
-        {MODO_DEMO && <p className="aviso">Modo de demonstração: os dados ficam só neste navegador.</p>}
+        {MODO_DEMO && <p className="aviso">Modo de demonstração: os dados ficam só neste navegador e não aparecem no site com login.</p>}
+        {contaTrocada && <p className="aviso">A conta conectada neste navegador mudou para <b>{contaTrocada}</b>. O que aparece agora é dessa conta; os dados da conta anterior continuam salvos nela.</p>}
+        <p className="muted conta-movel">Conectado como {user?.email}</p>
         {erro && <p className="erro-faixa">{erro}</p>}
         {children}
       </main>
