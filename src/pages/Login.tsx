@@ -25,7 +25,7 @@ export default function Login() {
   return (
     <main className="login">
       <div className="login-card">
-        <div className="logo" aria-hidden>📚</div>
+        
         <h1>Site de Estudos</h1>
         <p className="muted">Ciclos semanais, revisões e desempenho, tudo em um lugar.</p>
         <button className="btn-google" onClick={onEntrar} disabled={enviando}>
